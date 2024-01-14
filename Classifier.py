@@ -1,21 +1,16 @@
-import numpy as np
-
 from Descriptor import *
 from PIL import Image
 import os
 import joblib
-from sklearn.svm import LinearSVC, SVC
+from sklearn.svm import SVC
 from skimage.transform import pyramid_gaussian
-from utility import sliding_window, non_maximum_suppression, plot_heatmap_width_height, hard_mining, get_character_faces
+from utility import non_maximum_suppression
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from skimage.util.shape import view_as_windows
-from skimage.transform import integral_image
 from skimage.color import rgb2gray
-from sklearn.neural_network import MLPClassifier
 from constants import *
+from Data import Generator
 
 
 class SVM:
@@ -23,78 +18,63 @@ class SVM:
     NEGATIVES = "negative"
 
     def __init__(self):
-        self.X_hog = []
-        self.X_color = []
+        self.X = []
         self.y = []
         self.patch_size = 40
-        self.descriptor = Descriptor(self.patch_size, 9, (8, 8), (4, 4), "L2-Hys", False, 8)
-        # self.per_cahracter_descriptor = Descriptor(self.patch_size, 9, (10, 10), (4, 4), "L2-Hys", False, 8)
+        self.descriptor = Descriptor(self.patch_size, 9, (10, 10), (4, 4), "L2-Hys", False, 8)
         self.character_patch_size = 40
+
+    def get_patch_descriptors(self, image_folder, image_name):
+        image = Image.open(os.path.join(image_folder, image_name))
+        image = image.convert("RGB")
+
+        width, height = image.size
+
+        if width < self.patch_size or height < self.patch_size:
+            return None
+
+        image = rgb2gray(np.array(image))
+        return self.descriptor.get_hog_features(image)
 
     def load_data(self, path):
         for image_name in os.listdir(path):
-            image = Image.open(os.path.join(path, image_name))
-            image = image.convert("RGB")
+            descriptor = self.get_patch_descriptors(path, image_name)
+            if descriptor is not None:
+                self.X.append(descriptor)
 
-            width, height = image.size
-
-            if width < self.patch_size or height < self.patch_size:
-                continue
-
-            image = rgb2gray(np.array(image))
-            self.X_hog.append(self.descriptor.get_hog_features(image))
-            # self.X_color.append(self.descriptor.get_color_features(image, 6, (0, 256), 32))
-
-            if path == self.POSITIVES:
-                self.y.append(1)
-            else:
-                self.y.append(-1)
+                if path == self.POSITIVES:
+                    self.y.append(1)
+                else:
+                    self.y.append(-1)
 
     def load_hard_negatives(self, path):
         for image_name in os.listdir(path):
-            image = Image.open(os.path.join(path, image_name))
-            image = image.convert("RGB")
+            descriptor = self.get_patch_descriptors(path, image_name)
+            if descriptor is not None:
+                self.X.append(descriptor)
 
-            width, height = image.size
-
-            if width < self.patch_size or height < self.patch_size:
-                continue
-
-            image = rgb2gray(np.array(image))
-            self.X_hog.append(self.descriptor.get_hog_features(image))
-
-            self.y.append(-1)
+                self.y.append(-1)
 
     def train(self):
         self.load_data(self.POSITIVES)
         self.load_data(self.NEGATIVES)
         self.load_hard_negatives("hard_mining")
 
-        self.X_hog = np.array(self.X_hog)
-        self.X_color = np.array(self.X_color)
+        self.X = np.array(self.X)
         self.y = np.array(self.y)
 
-        shuffle = np.random.permutation(len(self.X_hog))
-        self.X_hog = self.X_hog[shuffle]
-        # self.X_color = self.X_color[shuffle]
+        shuffle = np.random.permutation(len(self.X))
+        self.X = self.X[shuffle]
         self.y = self.y[shuffle]
 
-        print(self.X_hog.shape, self.y.shape)
+        model_hog = Pipeline([('scaler', StandardScaler()), ('svc', SVC(C=100, kernel='rbf', gamma='scale'))])
 
-        X_train_hog, X_test_hog, y_train_hog, y_test_hog = train_test_split(self.X_hog, self.y, test_size=0.33,
-                                                                            random_state=42)
-        # X_train_color, X_test_color, y_train_color, y_test_color = train_test_split(self.X_color, self.y,
-        #                                                                             test_size=0.33, random_state=42)
+        model_hog.fit(self.X, self.y)
+        joblib.dump(model_hog, 'models/hog.pkl')
 
-        # model_hog = SVC(C=100, kernel='rbf', gamma='auto')
-        model_hog = Pipeline([('scaler', StandardScaler()), ('svc', SVC(C=10, kernel='rbf', gamma='auto'))])
-
-        model_hog.fit(X_train_hog, y_train_hog)
-        # model_color.fit(X_train_color, y_train_color)
-        #
-        scores = model_hog.decision_function(X_train_hog)
-        positive_scores = scores[y_train_hog > 0]
-        negative_scores = scores[y_train_hog <= 0]
+        scores = model_hog.decision_function(self.X)
+        positive_scores = scores[self.y > 0]
+        negative_scores = scores[self.y <= 0]
 
         plt.plot(np.sort(positive_scores))
         plt.plot(np.zeros(len(positive_scores)))
@@ -105,31 +85,13 @@ class SVM:
         plt.legend(['Scoruri exemple pozitive', '0', 'Scoruri exemple negative'])
         plt.show()
 
-        predictions_hog = model_hog.predict(X_test_hog)
-        # prediction_color = model_color.predict(X_test_color)
-        #
-        # indices = np.where(predictions_hog == 1)
-        # predictions_hog[indices] = prediction_color[indices]
-
-        print(f"Accuracy: {(predictions_hog == y_test_hog).mean()}")
-        # print(f"Accuracy: {(prediction_color == y_test_color).mean()}")
-
-        model_hog = Pipeline([('scaler', StandardScaler()), ('svc', SVC(C=10, kernel='rbf', gamma='auto'))])
-
-        model_hog.fit(self.X_hog, self.y)
-        joblib.dump(model_hog, 'models/hog.pkl')
-        # joblib.dump(model_color, 'models/color.pkl')
-
     def predict(self, original_image, image_name):
         model_hog = joblib.load('models/hog.pkl')
-        # model_color = joblib.load('models/color.pkl')
         detections = []
         scores = []
         file_names = np.array([])
 
         upscale = 1
-
-        widths, heights = [], []
 
         original_image = rgb2gray(np.array(original_image))
 
@@ -171,21 +133,19 @@ class SVM:
         detections = np.array(detections)
         scores = np.array(scores)
         detections, scores = non_maximum_suppression(detections, scores)
-        image_names = [image_name for ww in range(len(scores))]
+        image_names = [image_name for _ in range(len(scores))]
         file_names = np.append(file_names, image_names)
-
         return detections, scores, file_names
 
     def train_character_classifier(self):
         model_per_character = Pipeline([('scaler', StandardScaler()),
-                                        ('svc', SVC(C=1, kernel='rbf', gamma='auto', decision_function_shape='ovr'))])
+                                        ('svc', SVC(C=1, kernel='rbf', gamma='scale', decision_function_shape='ovr'))])
 
         X = []
         y = []
-        for patch, ch in get_character_faces():
+        for patch, ch in Generator.get_character_faces():
             if ch == 'unknown':
                 continue
-            # X.append(self.per_cahracter_descriptor.get_hog_features(patch))
 
             flipped_patch = patch.transpose(Image.FLIP_LEFT_RIGHT)
 
@@ -197,7 +157,7 @@ class SVM:
                                    anti_aliasing=True)
             X.append(patch.flatten())
             y.append(character_mapping[ch])
-            #
+
             X.append(flipped_patch.flatten())
             y.append(character_mapping[ch])
 
@@ -211,14 +171,12 @@ class SVM:
             if width < self.patch_size or height < self.patch_size:
                 continue
 
-            # image = rgb2gray(np.array(image))
-            # unknowns.append(self.per_cahracter_descriptor.get_hog_features(image))
             image = np.array(image)
             image = resize(image, (self.character_patch_size, self.character_patch_size, 3), anti_aliasing=True)
             unknowns.append(image.flatten())
 
-        shfl = np.random.permutation(len(unknowns))
-        unknowns = np.array(unknowns)[shfl]
+        shuffle = np.random.permutation(len(unknowns))
+        unknowns = np.array(unknowns)[shuffle]
         X.extend(unknowns)
         y.extend([4] * len(unknowns))
 
@@ -229,19 +187,12 @@ class SVM:
         X = X[shuffle]
         y = y[shuffle]
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
-
-        model_per_character.fit(X_train, y_train)
-
-        print(f"Accuracy: {(model_per_character.predict(X_test) == y_test).mean()}")
-
         model_per_character.fit(X, y)
 
         joblib.dump(model_per_character, 'models/character.pkl')
 
     def test_character_classifier(self, patch):
         model_character = joblib.load('models/character.pkl')
-        # prediction = model_character.predict([self.per_cahracter_descriptor.get_hog_features(patch)])
         patch = resize(patch, (self.character_patch_size, self.character_patch_size), anti_aliasing=True)
         prediction = model_character.predict([patch.flatten()])
         return characters[prediction[0]]
