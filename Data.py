@@ -1,5 +1,7 @@
 from utility import *
 import os
+from constants import *
+from PIL import Image
 
 
 class Generator:
@@ -14,6 +16,8 @@ class Generator:
         aspect_ratio = []
 
         for character in characters:
+            if character == 'unknown':
+                continue
             annotation_file = f"antrenare/{character}_annotations.txt"
 
             with open(annotation_file, "r") as f:

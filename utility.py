@@ -1,8 +1,6 @@
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-from constants import *
-from PIL import ImageDraw, Image
+from PIL import ImageDraw
 
 
 def intersect(window, boxes):
@@ -58,21 +56,8 @@ def intersection_over_union(a, b):
     a_area = (a[2] - a[0] + 1) * (a[3] - a[1] + 1)
     b_area = (b[2] - b[0] + 1) * (b[3] - b[1] + 1)
 
-    return intersection_area / float(a_area + b_area - intersection_area)
-
-
-def intersection_over_minimum_size(a, b):
-    x_a = max(a[0], b[0])
-    y_a = max(a[1], b[1])
-    x_b = min(a[2], b[2])
-    y_b = min(a[3], b[3])
-
-    intersection_area = max(0, x_b - x_a + 1) * max(0, y_b - y_a + 1)
-
-    a_area = (a[2] - a[0] + 1) * (a[3] - a[1] + 1)
-    b_area = (b[2] - b[0] + 1) * (b[3] - b[1] + 1)
-
-    return intersection_area / float(min(a_area, b_area))
+    return intersection_area / float(a_area + b_area - intersection_area), intersection_area / float(
+        min(a_area, b_area))
 
 
 def non_maximum_suppression(detections, scores):
@@ -87,12 +72,13 @@ def non_maximum_suppression(detections, scores):
     iou_threshold = 0.3
 
     for i in range(len(sorted_detections) - 1):
-        if is_maximal[i] == True:
+        if is_maximal[i]:
             for j in range(i + 1, len(sorted_detections)):
                 if is_maximal[j] == True:
-                    if intersection_over_minimum_size(sorted_detections[i], sorted_detections[j]) > iou_threshold:
+                    iou, iom = intersection_over_union(sorted_detections[i], sorted_detections[j])
+                    if iom > iou_threshold:
                         is_maximal[j] = False
-                    if intersection_over_union(sorted_detections[i], sorted_detections[j]) > iou_threshold:
+                    if iou > iou_threshold:
                         is_maximal[j] = False
                     else:
                         c_x = (sorted_detections[j][0] + sorted_detections[j][2]) / 2
@@ -103,6 +89,7 @@ def non_maximum_suppression(detections, scores):
                             is_maximal[j] = False
 
     return sorted_detections[is_maximal], sorted_scores[is_maximal]
+
 
 def plot_heatmap_width_height(widths, heights, file):
     widths = np.array(widths)
@@ -128,4 +115,3 @@ def plot_histogram(hist, name, file):
     plt.xlabel(name)
     plt.savefig(file)
     plt.show()
-

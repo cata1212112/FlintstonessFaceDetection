@@ -106,7 +106,6 @@ class MyFasterRCNN:
                             boxes[image_path].append((xmin, ymin, xmax, ymax, character_mapping[ch]))
 
             training_data = {}
-            validation_data = {}
 
             for character in characters:
                 if character == "unknown" or character == "":
