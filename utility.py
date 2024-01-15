@@ -65,8 +65,8 @@ def non_maximum_suppression(detections, scores):
     sorted_detections = detections[sorted_indices]
     sorted_scores = scores[sorted_indices]
 
-    sorted_detections = sorted_detections[:20]
-    sorted_scores = sorted_scores[:20]
+    sorted_detections = sorted_detections[:10]
+    sorted_scores = sorted_scores[:10]
 
     is_maximal = np.ones(len(sorted_detections), dtype=bool)
     iou_threshold = 0.3

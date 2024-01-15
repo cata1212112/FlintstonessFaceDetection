@@ -4,15 +4,13 @@ import numpy as np
 
 
 class Descriptor:
-    def __init__(self, patch_size, orientations, pixels_per_cell, cells_per_block, block_norm, transform_sqrt,
-                 color_size):
+    def __init__(self, patch_size, orientations, pixels_per_cell, cells_per_block, block_norm, transform_sqrt):
         self.patch_size = patch_size
         self.orientations = orientations
         self.pixels_per_cell = pixels_per_cell
         self.cells_per_block = cells_per_block
         self.block_norm = block_norm
         self.transform_sqrt = transform_sqrt
-        self.color_size = color_size
 
     def get_hog_features(self, patch, feature_vector=True, toResize=True):
         patch = np.array(patch)

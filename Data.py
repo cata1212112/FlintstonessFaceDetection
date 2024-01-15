@@ -2,6 +2,7 @@ from utility import *
 import os
 from constants import *
 from PIL import Image
+from tqdm import tqdm
 
 
 class Generator:
@@ -79,45 +80,46 @@ class Generator:
 
     @classmethod
     def get_training_images(cls):
+        boxes = {}
         for character in characters:
-            if character == 'unkown':
+            if character == 'unknown':
                 continue
             annotation_file = f"antrenare/{character}_annotations.txt"
 
-            images_file = f"antrenare/{character}"
+            with open(annotation_file, "r") as f:
+                for line in f:
+                    image_name, xmin, ymin, xmax, ymax, ch = line.split()
+                    xmin = int(xmin)
+                    ymin = int(ymin)
+                    xmax = int(xmax)
+                    ymax = int(ymax)
 
-            images = os.listdir(images_file)
+                    name = f"{character}/{image_name}"
 
-            for img_name in images:
-                file = os.path.join(images_file, img_name)
+                    if name not in boxes:
+                        boxes[name] = [(xmin, ymin, xmax, ymax)]
+                    else:
+                        boxes[name].append([xmin, ymin, xmax, ymax])
 
-                image = Image.open(file)
+        for character in characters:
+            if character == "unknown":
+                continue
+            for i in range(1, 1001):
+                image_path = f"antrenare/{character}/{str(i).zfill(4)}.jpg"
+                image = Image.open(image_path)
                 image = image.convert("RGB")
 
-                boxes = []
-
-                with open(annotation_file, "r") as f:
-                    for line in f:
-                        image_name, xmin, ymin, xmax, ymax, ch = line.split()
-                        xmin = int(xmin)
-                        ymin = int(ymin)
-                        xmax = int(xmax)
-                        ymax = int(ymax)
-
-                        if image_name == img_name:
-                            boxes.append([xmin, ymin, xmax, ymax])
-
-                yield image, boxes
+                yield image, boxes[f"{character}/{str(i).zfill(4)}.jpg"]
 
     @classmethod
     def hard_mining(cls, model):
         cnt = 1
-        for image, boxes in cls.get_training_images():
+        for image, boxes in tqdm(cls.get_training_images(), total=4000):
             detections, scores, file_names = model.predict(image.copy(), "hard_mining")
 
             def get_detection():
                 for detection, score in zip(detections, scores):
-                    ious = [intersection_over_union(detection, box) for box in boxes]
+                    ious = [intersection_over_union(detection, box)[0] for box in boxes]
 
                     if max(ious) < 0.3:
                         patch = image.crop(detection)

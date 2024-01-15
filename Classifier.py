@@ -1,3 +1,5 @@
+import numpy as np
+
 from Descriptor import *
 from PIL import Image
 import os
@@ -21,8 +23,9 @@ class SVM:
         self.X = []
         self.y = []
         self.patch_size = 40
-        self.descriptor = Descriptor(self.patch_size, 9, (10, 10), (4, 4), "L2-Hys", False, 8)
+        self.descriptor = Descriptor(self.patch_size, 9, (10, 10), (4, 4), "L2-Hys", False)
         self.character_patch_size = 40
+        self.for_prediction = None
 
     def get_patch_descriptors(self, image_folder, image_name):
         image = Image.open(os.path.join(image_folder, image_name))
@@ -83,10 +86,12 @@ class SVM:
         plt.ylabel('Scor clasificator')
         plt.title('Distributia scorurilor clasificatorului pe exemplele de antrenare')
         plt.legend(['Scoruri exemple pozitive', '0', 'Scoruri exemple negative'])
+        plt.savefig('scoruri.png')
         plt.show()
 
     def predict(self, original_image, image_name):
-        model_hog = joblib.load('models/hog.pkl')
+        if self.for_prediction is None:
+            self.for_prediction = joblib.load('models/hog.pkl')
         detections = []
         scores = []
         file_names = np.array([])
@@ -96,7 +101,7 @@ class SVM:
         original_image = rgb2gray(np.array(original_image))
 
         for image in pyramid_gaussian(np.array(original_image), downscale=1.25, preserve_range=True):
-            if image.shape[0] < self.patch_size or image.shape[1] < self.patch_size:
+            if image.shape[0] <= self.patch_size or image.shape[1] <= self.patch_size:
                 break
             hog_rider = self.descriptor.get_hog_features(image, feature_vector=False, toResize=False)
 
@@ -108,19 +113,24 @@ class SVM:
             scaled_detections = []
             scaled_scores = []
 
+            descriptors = []
             for y in range(0, num_rows - num_cell_in_template):
                 for x in range(0, num_cols - num_cell_in_template):
                     descr = hog_rider[y:y + num_cell_in_template, x:x + num_cell_in_template].flatten()
-                    prediction_hog = model_hog.decision_function([descr])[0]
-                    if prediction_hog > 0.5:
-                        x_min = int(x * self.descriptor.pixels_per_cell[0])
-                        y_min = int(y * self.descriptor.pixels_per_cell[0])
-                        x_max = int(x * self.descriptor.pixels_per_cell[0] + self.patch_size)
-                        y_max = int(y * self.descriptor.pixels_per_cell[0] + self.patch_size)
+                    descriptors.append(descr)
 
-                        scaled_detections.append(
-                            [int(x_min * upscale), int(y_min * upscale), int(x_max * upscale), int(y_max * upscale)])
-                        scaled_scores.append(prediction_hog)
+            descriptors = np.array(descriptors)
+            scores_now = self.for_prediction.decision_function(descriptors)
+            scores_now = np.array(scores_now)
+            scores_now = scores_now.reshape((num_rows - num_cell_in_template, num_cols - num_cell_in_template))
+            for y in range(0, num_rows - num_cell_in_template):
+                for x in range(0, num_cols - num_cell_in_template):
+                    if scores_now[y, x] > 0.5:
+                        scaled_detections.append((int(x * self.descriptor.pixels_per_cell[0] * upscale),
+                                                  int(y * self.descriptor.pixels_per_cell[0] * upscale),
+                                                  int((x * self.descriptor.pixels_per_cell[0] + self.patch_size) * upscale),
+                                                  int((y * self.descriptor.pixels_per_cell[0] + self.patch_size) * upscale)))
+                        scaled_scores.append(scores_now[y, x])
 
             if len(scaled_detections) > 0:
                 scaled_detections = np.array(scaled_detections)
