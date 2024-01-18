@@ -154,8 +154,8 @@ class SVM:
         X = []
         y = []
         for patch, ch in Generator.get_character_faces():
-            if ch == 'unknown':
-                continue
+            # if ch == 'unknown':
+            #     continue
 
             flipped_patch = patch.transpose(Image.FLIP_LEFT_RIGHT)
 
@@ -188,7 +188,7 @@ class SVM:
         shuffle = np.random.permutation(len(unknowns))
         unknowns = np.array(unknowns)[shuffle]
         X.extend(unknowns)
-        y.extend([4] * len(unknowns))
+        y.extend([5] * len(unknowns))
 
         X = np.array(X)
         y = np.array(y)

@@ -11,6 +11,7 @@ from torchvision.transforms import v2 as T
 from tqdm import tqdm
 from utility import non_maximum_suppression, draw_rectangles_on_image_and_save
 from Save import SaveSolution
+import time
 
 characters = ['', 'barney', 'betty', 'fred', 'wilma', 'unknown']
 character_mapping = {'barney': 1, 'betty': 2, 'fred': 3, 'wilma': 4, 'unknown': 5}
@@ -159,7 +160,8 @@ class MyFasterRCNN:
         character_detections_file_names = {'barney': [], 'betty': [], 'fred': [], 'wilma': []}
         chatacter_detection_scores = {'barney': [], 'betty': [], 'fred': [], 'wilma': []}
 
-        for image_name in tqdm(os.listdir("validare/validare"), desc="Detecting with FasterRCNN"):
+        for image_name in os.listdir("validare/validare"):
+            start = time.time()
             image = Image.open(f"validare/validare/{image_name}")
             image = image.convert("RGB")
             image_for_prediction = train_transforms(image.copy(), {})[0]
@@ -170,6 +172,7 @@ class MyFasterRCNN:
                 boxes = predictions["boxes"].cpu().numpy().astype(np.int32)
                 scores = predictions["scores"].cpu().numpy()
                 boxes, scores = non_maximum_suppression(boxes, scores)
+                print(f"FASTERRCNN: Time for {image_name}: {time.time() - start}")
                 character_names = [characters[ch] for ch in predictions["labels"].cpu().numpy()]
                 if DRAW:
                     draw_rectangles_on_image_and_save(image, [(box, (0, 255, 0)) for box in boxes],
@@ -195,12 +198,12 @@ class MyFasterRCNN:
         final_scores = np.array(final_scores)
         file_names = np.array(file_names)
 
-        SaveSolution("fisiere_solutie/bonus", "all_faces", detections, final_scores, file_names).save()
+        SaveSolution("fisiere_solutie/bonus/task1", "all_faces", detections, final_scores, file_names).save()
 
         for character in characters:
-            if character == "unknown":
+            if character == "unknown" or character == "":
                 continue
-            SaveSolution("fisiere_solutie/bonus", character, character_detections[character],
+            SaveSolution("fisiere_solutie/bonus/task2", character, character_detections[character],
                          chatacter_detection_scores[character],
                          character_detections_file_names[character]).save()
 

@@ -1,4 +1,4 @@
-characters = ['barney', 'betty', 'fred', 'wilma', 'unknown']
+characters = ['barney', 'betty', 'fred', 'wilma', 'unknown', 'unknown']
 character_mapping = {'barney': 0, 'betty': 1, 'fred': 2, 'wilma': 3, 'unknown': 4}
 
 TEST_PATH = "validare/validare"

@@ -72,15 +72,15 @@ for detection, file_name in zip(detections, file_names):
 
 
 for character in characters:
-    if character == "unknown":
+    if character == "unknown" or character == "":
         continue
     SaveSolution("fisiere_solutie/task2", character, character_detections[character],
                  np.array([1] * len(character_detections[character])),
                  character_detections_file_names[character]).save()
 
-# fasterRCNN = MyFasterRCNN()
-#
-# if FASTERRCNN_TRAIN:
-#     fasterRCNN.train()
-#
-# fasterRCNN.test()
+fasterRCNN = MyFasterRCNN()
+
+if FASTERRCNN_TRAIN:
+    fasterRCNN.train()
+
+fasterRCNN.test()
