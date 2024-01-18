@@ -8,7 +8,6 @@ from PIL import Image
 import os
 import numpy as np
 from torchvision.transforms import v2 as T
-from tqdm import tqdm
 from utility import non_maximum_suppression, draw_rectangles_on_image_and_save
 from Save import SaveSolution
 import time

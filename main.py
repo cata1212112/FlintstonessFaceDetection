@@ -1,6 +1,3 @@
-from Data import Generator
-from constants import *
-from tqdm import tqdm
 from Classifier import *
 from utility import *
 from Save import SaveSolution

@@ -1,5 +1,3 @@
-import numpy as np
-
 from Descriptor import *
 from PIL import Image
 import os

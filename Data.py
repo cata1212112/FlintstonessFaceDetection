@@ -2,8 +2,6 @@ from utility import *
 import os
 from constants import *
 from PIL import Image
-from tqdm import tqdm
-
 
 class Generator:
     def __init__(self):
@@ -114,7 +112,7 @@ class Generator:
     @classmethod
     def hard_mining(cls, model):
         cnt = 1
-        for image, boxes in tqdm(cls.get_training_images(), total=4000):
+        for image, boxes in cls.get_training_images():
             detections, scores, file_names = model.predict(image.copy(), "hard_mining")
 
             def get_detection():
